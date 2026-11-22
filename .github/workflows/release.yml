@@ -1,0 +1,214 @@
+# Releases. Bump `version` in Cargo.toml, add a `## [X.Y.Z]` section to CHANGELOG.md, then:
+#   git tag -a vX.Y.Z -m "Voltrus Kiosk X.Y.Z" && git push origin vX.Y.Z
+# The GitHub Release gets one binary per platform, SHA256SUMS, and latest.json + latest.json.sig:
+# the manifest installed kiosks poll (releases/latest/download/latest.json), signed with the
+# UPDATE_SIGNING_KEY secret (Ed25519 PEM) whose public half is compiled into src/updater.rs.
+#
+# Dry run (builds everything, uploads workflow artifacts only):
+#   gh workflow run release.yml --ref main
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build everything but publish nothing"
+        type: boolean
+        default: true
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  check:
+    name: check tag, version, changelog
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      publish: ${{ steps.v.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        env:
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          version="$(awk '/^\[package\]/{s=1;next} /^\[/{s=0} s && /^version *=/{gsub(/.*= *"|".*/,""); print; exit}' Cargo.toml)"
+          publish=true
+          if [ "$DRY_RUN" = true ]; then
+            publish=false
+          elif [ "$GITHUB_REF_TYPE" != tag ]; then
+            echo "::error::publishing needs a v* tag (got ${GITHUB_REF}); use dry_run from a branch"; exit 1
+          fi
+          if [ "$GITHUB_REF_TYPE" = tag ] && [ "$GITHUB_REF_NAME" != "v${version}" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match Cargo.toml version ${version}"; exit 1
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "publish=${publish}" >> "$GITHUB_OUTPUT"
+      - run: ./scripts/changelog-section.sh "${{ steps.v.outputs.version }}"
+
+  linux:
+    name: linux (${{ matrix.arch }})
+    needs: check
+    strategy:
+      matrix:
+        include:
+          - { arch: x86_64, os: ubuntu-24.04 }
+          - { arch: aarch64, os: ubuntu-24.04-arm }
+    runs-on: ${{ matrix.os }}
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: ./scripts/ci-deps.sh
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release
+          cache-on-failure: true
+      - run: cargo build --release --locked
+      - run: target/release/voltrus-kiosk --version | grep -F "voltrus-kiosk ${VERSION} "
+      - run: |
+          mkdir -p dist
+          cp target/release/voltrus-kiosk "dist/voltrus-kiosk-${VERSION}-${{ matrix.arch }}-linux"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-linux-${{ matrix.arch }}
+          path: dist/*
+          if-no-files-found: error
+
+  windows:
+    name: windows (x64)
+    needs: check
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release
+          cache-on-failure: true
+      - run: cargo build --release --locked
+      - run: |
+          mkdir -p dist
+          cp target/release/voltrus-kiosk.exe "dist/voltrus-kiosk-${VERSION}-x86_64-windows.exe"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-windows-x64
+          path: dist/*
+          if-no-files-found: error
+
+  macos:
+    name: macos (universal)
+    needs: check
+    runs-on: macos-15
+    timeout-minutes: 120
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release-macos
+          cache-on-failure: true
+      - run: |
+          cargo build --release --locked --target aarch64-apple-darwin
+          cargo build --release --locked --target x86_64-apple-darwin
+          mkdir -p dist
+          lipo -create -output "dist/voltrus-kiosk-${VERSION}-universal-macos" \
+            target/aarch64-apple-darwin/release/voltrus-kiosk target/x86_64-apple-darwin/release/voltrus-kiosk
+          "dist/voltrus-kiosk-${VERSION}-universal-macos" --version | grep -F "voltrus-kiosk ${VERSION} "
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-macos
+          path: dist/*
+          if-no-files-found: error
+
+  publish:
+    needs: [check, linux, windows, macos]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+      PUBLISH: ${{ needs.check.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: release-*
+          merge-multiple: true
+      - name: Checksums and signed update manifest
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          cd dist
+          sha256sum voltrus-kiosk-* > SHA256SUMS
+          cat SHA256SUMS
+          python3 - <<'PY'
+          import json, os
+          v = os.environ["VERSION"]
+          assets = {}
+          for line in open("SHA256SUMS"):
+              digest, name = line.split()
+              target = name[len(f"voltrus-kiosk-{v}-"):].removesuffix(".exe")
+              assets[target] = {"name": name, "sha256": digest}
+          for t in ("x86_64-linux", "aarch64-linux", "x86_64-windows", "universal-macos"):
+              assert t in assets, f"missing build for {t}"
+          json.dump({"version": v, "assets": assets}, open("latest.json", "w"), indent=2)
+          PY
+          cat latest.json
+          if [ -z "${UPDATE_SIGNING_KEY}" ]; then
+            if [ "$PUBLISH" = true ]; then echo "::error::UPDATE_SIGNING_KEY secret is not set"; exit 1; fi
+            echo "::warning::no UPDATE_SIGNING_KEY: dry run leaves latest.json unsigned"
+          else
+            umask 077
+            printf '%s\n' "$UPDATE_SIGNING_KEY" > "$RUNNER_TEMP/key.pem"
+            openssl pkeyutl -sign -inkey "$RUNNER_TEMP/key.pem" -rawin -in latest.json | base64 -w0 > latest.json.sig
+            rm -f "$RUNNER_TEMP/key.pem"
+          fi
+      - if: needs.check.outputs.publish != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-dry-run
+          path: dist/*
+      - if: needs.check.outputs.publish == 'true'
+        name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ./scripts/changelog-section.sh "$VERSION" > notes.md
+          cat >> notes.md <<EOF
+
+          ## Download
+
+          Pick the binary for the kiosk PC, put it in a folder the kiosk user can write to (updates replace it in place) and run it.
+
+          - Linux x86_64: \`voltrus-kiosk-${VERSION}-x86_64-linux\` (glibc 2.39+: Ubuntu 24.04, Debian 13 or later); ARM64: \`voltrus-kiosk-${VERSION}-aarch64-linux\`. Run \`chmod +x\` first.
+          - Windows 10/11 x64: \`voltrus-kiosk-${VERSION}-x86_64-windows.exe\` (unsigned: SmartScreen → More info → Run anyway).
+          - macOS 11+: \`voltrus-kiosk-${VERSION}-universal-macos\` (unsigned: \`xattr -d com.apple.quarantine\` it, then allow camera access).
+
+          Installed kiosks update by themselves. Verify downloads with \`sha256sum -c SHA256SUMS --ignore-missing\`.
+          EOF
+          gh release create "v${VERSION}" dist/* --verify-tag --latest --title "Voltrus Kiosk ${VERSION}" --notes-file notes.md

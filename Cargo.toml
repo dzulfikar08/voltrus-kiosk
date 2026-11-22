@@ -3,7 +3,8 @@ name = "voltrus-kiosk"
 version = "0.1.0"
 edition = "2024"
 description = "Voltrus ERP face attendance kiosk (GPUI, offline-first)"
-license = "UNLICENSED"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/dzulfikar08/voltrus-kiosk"
 publish = false
 
 # Own workspace: keeps GPUI's dependency graph out of anything above it.
@@ -16,7 +17,7 @@ gpui-kit = "0.9"
 ort = { version = "=2.0.0-rc.10" }
 # Webcam: V4L2 on Linux, Media Foundation on Windows, AVFoundation on macOS.
 nokhwa = { version = "0.10", features = ["input-native"] }
-# Signed device requests (Ed25519, same scheme as src/hr/kiosk.ts).
+# Signed device requests (Ed25519, the scheme Voltrus ERP's kiosk API checks).
 ed25519-dalek = { version = "2", features = ["rand_core"] }
 rand = "0.8"
 sha2 = "0.10"

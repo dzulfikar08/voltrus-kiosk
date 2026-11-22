@@ -1,5 +1,5 @@
 //! The recognition loop: embed the newest frame, match it against the pulled
-//! gallery with the server's rule (src/hr/face.ts identify), and queue an
+//! gallery with the server's own identify rule, and queue an
 //! attendance event.
 
 use crate::face::engine::Engine;

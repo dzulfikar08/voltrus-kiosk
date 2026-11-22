@@ -1,4 +1,4 @@
-//! Signed requests to /api/hr/kiosk/* (src/hr/kiosk.ts). The kiosk signs
+//! Signed requests to Voltrus ERP's /api/hr/kiosk/* endpoints. The kiosk signs
 //!   `{deviceUid}.{ts}.{nonce}.{bodyHash}`
 //! with its Ed25519 key, where bodyHash is base64(sha256(body)) or "" for an
 //! empty body, and sends X-Device-Uid, X-Device-Ts (unix seconds),
@@ -213,7 +213,7 @@ mod tests {
     #[test]
     fn body_hash_matches_the_server() {
         assert_eq!(body_hash(""), "");
-        // base64(sha256("{}")), as crypto.subtle computes it in src/hr/kiosk.ts.
+        // base64(sha256("{}")), as the server computes it with crypto.subtle.
         assert_eq!(
             body_hash("{}"),
             "RBNvo1WzZ4oRRq0W9+hknpT7T8If536DEMBg9hyq/4o="

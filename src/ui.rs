@@ -3,7 +3,7 @@
 
 use crate::client::Client;
 use crate::i18n::t;
-use crate::state::{Mode, Seen, Shared};
+use crate::state::{Mode, Seen, Shared, UpdateState};
 use crate::store::{Config, EventStatus, EventType, Identity, Lang};
 use gpui_kit::base::{h_flex, v_flex};
 use gpui_kit::component::button::{Button, ButtonVariants as _};
@@ -176,6 +176,8 @@ impl KioskApp {
     }
 
     fn render_setup(&mut self, cx: &mut Context<Self>) -> AnyElement {
+        let update_row = self.render_update_row(cx);
+        let has_gallery = self.shared.gallery.lock().is_some();
         let lang = self.lang();
         let theme = cx.theme().clone();
         let uid = self.identity.device_uid.clone();
@@ -289,7 +291,7 @@ impl KioskApp {
                                         cx.listener(|this, _, window, cx| this.connect(window, cx)),
                                     ),
                             )
-                            .when(self.shared.gallery.lock().is_some(), |el| {
+                            .when(has_gallery, |el| {
                                 el.child(
                                     Button::new("back")
                                         .large()
@@ -301,6 +303,7 @@ impl KioskApp {
                                 )
                             }),
                     )
+                    .child(update_row)
                     .child(
                         div()
                             .text_xs()
@@ -308,6 +311,73 @@ impl KioskApp {
                             .child(t(lang, "setup.shortcut")),
                     ),
             )
+            .into_any_element()
+    }
+
+    /// Version, update state, "check now" / "restart now", auto-update toggle.
+    fn render_update_row(&mut self, cx: &mut Context<Self>) -> AnyElement {
+        let lang = self.lang();
+        let theme = cx.theme().clone();
+        let state = self.shared.update.lock().clone();
+        let (text, color) = match &state {
+            UpdateState::Idle => (String::new(), theme.muted_foreground),
+            UpdateState::Checking => (
+                t(lang, "update.checking").to_string(),
+                theme.muted_foreground,
+            ),
+            UpdateState::UpToDate => (
+                t(lang, "update.current").to_string(),
+                theme.muted_foreground,
+            ),
+            UpdateState::Ready(v) => (format!("{} {v}", t(lang, "update.ready")), theme.success),
+            UpdateState::Failed(e) => (format!("{}: {e}", t(lang, "update.failed")), theme.danger),
+        };
+        let auto = self.config.auto_update;
+        let action = if matches!(state, UpdateState::Ready(_)) {
+            Button::new("update-restart")
+                .primary()
+                .label(t(lang, "update.restart"))
+                .on_click(cx.listener(|this, _, _, _| crate::update_loop::ask(&this.shared)))
+        } else {
+            Button::new("update-check")
+                .label(t(lang, "update.check"))
+                .disabled(state == UpdateState::Checking)
+                .on_click(cx.listener(|this, _, _, cx| {
+                    crate::update_loop::ask(&this.shared);
+                    *this.shared.update.lock() = UpdateState::Checking;
+                    cx.notify();
+                }))
+        };
+        let toggle = Button::new("update-auto")
+            .label(if auto {
+                t(lang, "update.auto.on")
+            } else {
+                t(lang, "update.auto.off")
+            })
+            .on_click(cx.listener(|this, _, _, cx| {
+                this.config.auto_update = !this.config.auto_update;
+                let _ = this.config.save();
+                cx.notify();
+            }));
+        v_flex()
+            .gap_2()
+            .pt_4()
+            .border_t_1()
+            .border_color(theme.border)
+            .child(
+                h_flex()
+                    .justify_between()
+                    .items_center()
+                    .child(
+                        div()
+                            .text_sm()
+                            .child(format!("Voltrus Kiosk {}", crate::updater::VERSION)),
+                    )
+                    .child(h_flex().gap_2().child(toggle).child(action)),
+            )
+            .when(!text.is_empty(), |el| {
+                el.child(div().text_xs().text_color(color).child(text))
+            })
             .into_any_element()
     }
 

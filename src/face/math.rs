@@ -1,4 +1,4 @@
-//! Pure face math, a line-for-line port of console/src/lib/face/faceMath.ts
+//! Pure face math, a line-for-line port of the Voltrus ERP console's browser face engine
 //! so the kiosk and the browser produce the same embeddings: the YuNet decode
 //! (OpenCV FaceDetectorYN::postProcess), NMS, the 5-point alignment onto the
 //! SFace template, the MiniFASNet crop and softmax, and image resampling.

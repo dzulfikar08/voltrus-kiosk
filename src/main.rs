@@ -5,6 +5,7 @@
 //!   voltrus-kiosk              run the kiosk
 //!   voltrus-kiosk identity     print the Device UID and public key
 //!   voltrus-kiosk embed IMG    print the embedding of the largest face (JSON)
+//!   voltrus-kiosk update       install the newest release now
 //!   voltrus-kiosk check IMG [in|out]
 //!                              pull from the server, identify the photo, and
 //!                              with in|out send that check-in (install test)
@@ -20,6 +21,8 @@ mod state;
 mod store;
 mod sync;
 mod ui;
+mod update_loop;
+mod updater;
 
 use gpui_kit::component::{Root, Theme, ThemeMode};
 use gpui_kit::{
@@ -130,6 +133,19 @@ fn main() -> anyhow::Result<()> {
             );
             return Ok(());
         }
+        Some("update") => {
+            return match updater::check()? {
+                None => {
+                    println!("voltrus-kiosk {} is the newest release", updater::VERSION);
+                    Ok(())
+                }
+                Some(m) => {
+                    let path = updater::install(&m)?;
+                    println!("installed {} at {}", m.version, path.display());
+                    Ok(())
+                }
+            };
+        }
         Some("identity") => {
             let id = store::Identity::load_or_create()?;
             println!(
@@ -155,7 +171,11 @@ fn main() -> anyhow::Result<()> {
     let shared = state::Shared::new();
     let client = Arc::new(client::Client::new(&config.server_url, identity.clone()));
 
+    // macOS asks for camera permission once; the camera thread retries until granted.
+    #[cfg(target_os = "macos")]
+    nokhwa::nokhwa_initialize(|_| {});
     camera::spawn(shared.clone(), config.camera_index);
+    update_loop::spawn(shared.clone(), || store::Config::load().auto_update);
     {
         let client = client.clone();
         recognizer::spawn(shared.clone(), models.clone(), move || client.now_iso());

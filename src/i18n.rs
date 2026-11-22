@@ -218,6 +218,62 @@ pub fn t(lang: Lang, key: &str) -> &'static str {
                 "rejected"
             }
         }
+        "update.check" => {
+            if id {
+                "Cek pembaruan"
+            } else {
+                "Check for updates"
+            }
+        }
+        "update.checking" => {
+            if id {
+                "Memeriksa pembaruan…"
+            } else {
+                "Checking for updates…"
+            }
+        }
+        "update.current" => {
+            if id {
+                "Sudah versi terbaru."
+            } else {
+                "This is the newest version."
+            }
+        }
+        "update.ready" => {
+            if id {
+                "Siap dipasang saat kamera sepi: versi"
+            } else {
+                "Installs when nobody is at the camera: version"
+            }
+        }
+        "update.failed" => {
+            if id {
+                "Pembaruan gagal"
+            } else {
+                "Update failed"
+            }
+        }
+        "update.restart" => {
+            if id {
+                "Mulai ulang sekarang"
+            } else {
+                "Restart now"
+            }
+        }
+        "update.auto.on" => {
+            if id {
+                "Pembaruan otomatis: nyala"
+            } else {
+                "Auto update: on"
+            }
+        }
+        "update.auto.off" => {
+            if id {
+                "Pembaruan otomatis: mati"
+            } else {
+                "Auto update: off"
+            }
+        }
         _ => "?",
     }
 }

@@ -53,6 +53,13 @@ pub struct Config {
     pub lang: Lang,
     #[serde(default)]
     pub camera_index: u32,
+    /// Install new releases by itself (on by default).
+    #[serde(default = "yes")]
+    pub auto_update: bool,
+}
+
+fn yes() -> bool {
+    true
 }
 
 impl Default for Config {
@@ -61,6 +68,7 @@ impl Default for Config {
             server_url: String::new(),
             lang: Lang::Id,
             camera_index: 0,
+            auto_update: true,
         }
     }
 }

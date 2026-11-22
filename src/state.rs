@@ -34,6 +34,17 @@ pub enum Seen {
     },
 }
 
+#[derive(Debug, Clone, Default, PartialEq)]
+pub enum UpdateState {
+    #[default]
+    Idle,
+    Checking,
+    UpToDate,
+    /// Installed; starts when nobody is at the camera.
+    Ready(String),
+    Failed(String),
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct SyncStatus {
     pub online: bool,
@@ -55,6 +66,9 @@ pub struct Shared {
     pub engine_error: Mutex<Option<String>>,
     /// Wakes the sync thread (a new event to push, or a pull request).
     pub wake: Mutex<Option<Sender<()>>>,
+    pub update: Mutex<UpdateState>,
+    /// Asks the update thread to check now.
+    pub update_now: Mutex<Option<Sender<()>>>,
 }
 
 impl Shared {
@@ -71,6 +85,8 @@ impl Shared {
             sync: Mutex::new(SyncStatus::default()),
             engine_error: Mutex::new(None),
             wake: Mutex::new(None),
+            update: Mutex::new(UpdateState::Idle),
+            update_now: Mutex::new(None),
         })
     }
 
@@ -124,6 +140,12 @@ impl Shared {
         if slot.0 != seen {
             *slot = (seen, Instant::now());
         }
+    }
+
+    /// Nobody has been in front of the camera for at least `secs`.
+    pub fn idle_for(&self, secs: u64) -> bool {
+        let seen = self.seen.lock();
+        seen.0 == Seen::Nobody && seen.1.elapsed().as_secs() >= secs
     }
 
     pub fn wake_sync(&self) {

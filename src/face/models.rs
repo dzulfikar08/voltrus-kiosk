@@ -1,5 +1,5 @@
 //! Model files: the same three the console serves at /models (pinned by
-//! SHA-256 in console/scripts/download-face-models.sh). The kiosk downloads
+//! SHA-256 here and in the console's model download script). The kiosk downloads
 //! them from its server on first start and checks every byte.
 
 use anyhow::{Context as _, Result, bail};
