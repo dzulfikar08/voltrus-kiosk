@@ -1,0 +1,39 @@
+[package]
+name = "voltrus-kiosk"
+version = "0.1.0"
+edition = "2024"
+description = "Voltrus ERP face attendance kiosk (GPUI, offline-first)"
+license = "UNLICENSED"
+publish = false
+
+# Own workspace: keeps GPUI's dependency graph out of anything above it.
+[workspace]
+
+[dependencies]
+# UI: gpui-kit pins the matching GPUI release and gpui-component widgets.
+gpui-kit = "0.9"
+# Face models (YuNet, SFace int8, MiniFASNet-V2) on ONNX Runtime.
+ort = { version = "=2.0.0-rc.10" }
+# Webcam: V4L2 on Linux, Media Foundation on Windows, AVFoundation on macOS.
+nokhwa = { version = "0.10", features = ["input-native"] }
+# Signed device requests (Ed25519, same scheme as src/hr/kiosk.ts).
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+rand = "0.8"
+sha2 = "0.10"
+base64 = "0.22"
+hex = "0.4"
+ureq = { version = "2", default-features = false, features = ["tls", "json"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+dirs = "6"
+anyhow = "1"
+parking_lot = "0.12"
+# Preview frames for GPUI (RenderImage takes image::Frame; same 0.25 as GPUI)
+# and stills for `voltrus-kiosk embed`.
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+
+[profile.release]
+codegen-units = 1
+lto = "thin"
+strip = true
