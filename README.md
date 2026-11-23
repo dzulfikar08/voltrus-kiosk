@@ -42,6 +42,8 @@ On 40 LFW photos the kiosk's embeddings agree with OpenCV's
    - Put it in a folder the kiosk's user can write to, because updates replace
      it in place.
    - Linux needs glibc 2.39+ (Ubuntu 24.04, Debian 13 or later).
+   - On Windows, unzip the `.zip`: the exe needs the `DirectML.dll` next to it.
+     Updates replace only the exe.
    - The Windows and macOS builds are not code-signed.
 2. **Run it.** The first start opens **Setup**:
    - Enter the server address (e.g. `https://erp.company.com`).

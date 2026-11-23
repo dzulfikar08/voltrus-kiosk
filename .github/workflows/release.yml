@@ -103,10 +103,19 @@ jobs:
         with:
           key: release
           cache-on-failure: true
+      # ort-sys copies DirectML.dll into target/release/{.,examples,deps} and fails if they are missing.
+      - run: mkdir -p target/release/examples target/release/deps
       - run: cargo build --release --locked
+      - run: target/release/voltrus-kiosk.exe --version | grep -F "voltrus-kiosk ${VERSION} "
+      # ONNX Runtime is linked statically, but it loads DirectML.dll from beside the exe.
+      # First installs take the zip (exe + DLL); updates replace only the exe.
       - run: |
-          mkdir -p dist
+          mkdir -p dist pkg
           cp target/release/voltrus-kiosk.exe "dist/voltrus-kiosk-${VERSION}-x86_64-windows.exe"
+          cp target/release/voltrus-kiosk.exe pkg/voltrus-kiosk.exe
+          cp -L target/release/DirectML.dll pkg/DirectML.dll
+          cp LICENSE pkg/LICENSE.txt
+          (cd pkg && 7z a -tzip "../dist/voltrus-kiosk-${VERSION}-x86_64-windows.zip" .)
       - uses: actions/upload-artifact@v4
         with:
           name: release-windows-x64
@@ -171,6 +180,8 @@ jobs:
           assets = {}
           for line in open("SHA256SUMS"):
               digest, name = line.split()
+              if name.endswith(".zip"):
+                  continue
               target = name[len(f"voltrus-kiosk-{v}-"):].removesuffix(".exe")
               assets[target] = {"name": name, "sha256": digest}
           for t in ("x86_64-linux", "aarch64-linux", "x86_64-windows", "universal-macos"):
@@ -206,7 +217,7 @@ jobs:
           Pick the binary for the kiosk PC, put it in a folder the kiosk user can write to (updates replace it in place) and run it.
 
           - Linux x86_64: \`voltrus-kiosk-${VERSION}-x86_64-linux\` (glibc 2.39+: Ubuntu 24.04, Debian 13 or later); ARM64: \`voltrus-kiosk-${VERSION}-aarch64-linux\`. Run \`chmod +x\` first.
-          - Windows 10/11 x64: \`voltrus-kiosk-${VERSION}-x86_64-windows.exe\` (unsigned: SmartScreen → More info → Run anyway).
+          - Windows 10/11 x64: unzip \`voltrus-kiosk-${VERSION}-x86_64-windows.zip\` (the exe needs the DirectML.dll beside it; unsigned: SmartScreen → More info → Run anyway).
           - macOS 11+: \`voltrus-kiosk-${VERSION}-universal-macos\` (unsigned: \`xattr -d com.apple.quarantine\` it, then allow camera access).
 
           Installed kiosks update by themselves. Verify downloads with \`sha256sum -c SHA256SUMS --ignore-missing\`.

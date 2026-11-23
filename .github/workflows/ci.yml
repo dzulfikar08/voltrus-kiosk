@@ -40,4 +40,8 @@ jobs:
         run: |
           cargo fmt --check
           cargo clippy --all-targets --locked -- -D warnings
+      # ort-sys copies DirectML.dll into target/<profile>/{.,examples,deps} and fails if they are missing.
+      - if: runner.os == 'Windows'
+        shell: bash
+        run: mkdir -p target/debug/examples target/debug/deps
       - run: cargo test --locked
