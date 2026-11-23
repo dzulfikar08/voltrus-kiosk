@@ -44,6 +44,9 @@ On 40 LFW photos the kiosk's embeddings agree with OpenCV's
    - Linux needs glibc 2.39+ (Ubuntu 24.04, Debian 13 or later).
    - On Windows, unzip the `.zip`: the exe needs the `DirectML.dll` next to it.
      Updates replace only the exe.
+   - On a Mac, unzip `…-universal-macos-app.zip` and move **Voltrus Kiosk.app**
+     to the Applications folder in your home folder. It is unsigned, so run
+     `xattr -dr com.apple.quarantine "Voltrus Kiosk.app"` once.
    - The Windows and macOS builds are not code-signed.
 2. **Run it.** The first start opens **Setup**:
    - Enter the server address (e.g. `https://erp.company.com`).
@@ -53,8 +56,28 @@ On 40 LFW photos the kiosk's embeddings agree with OpenCV's
    enters a name, a location, and the **Device UID** and **public key** shown in
    Setup (both have a Copy button).
 4. **Save and connect.** The kiosk downloads the models, pulls the employees and
-   faces, and switches to the kiosk screen. Employees enrol their faces in the
-   Voltrus console, and the kiosk pulls new faces every 5 minutes.
+   faces, and switches to the kiosk screen.
+5. **Set an admin PIN** in HR → Kiosks (open the kiosk's record). Until one is
+   set, anyone at the kiosk can open its settings, and enrolling at the kiosk is
+   off.
+
+## Enrolling faces
+
+Faces can be enrolled in the Voltrus console (HR → Face recognition) or at the
+kiosk:
+
+1. Open the settings (the gear button, or the shortcut) and enter the admin PIN.
+2. Choose **Enrol a face** and pick the employee.
+3. The employee reads the consent notice and presses **I agree**. Voltrus
+   records the consent (UU PDP) before it stores any face data.
+4. The kiosk takes five samples, asking the person to look straight, turn a
+   little left and right, and lift their chin. It needs exactly one live face,
+   close enough to the camera.
+
+The samples replace the employee's earlier templates. The server refuses them if
+they look like another enrolled employee, and checks the PIN again (five wrong
+PINs lock enrolment for 15 minutes). Every kiosk picks the new faces up within 5
+minutes; the enrolling kiosk at once.
 
 ## Using it
 
@@ -69,8 +92,9 @@ On 40 LFW photos the kiosk's embeddings agree with OpenCV's
   - The match must repeat on two frames in a row.
   - The face must pass the anti-spoofing check.
   - The same person within 60 seconds counts as one scan.
-- **Shortcuts:** Ctrl+Shift+S opens Setup and F11 toggles full screen. Setup
-  has no on-screen button, so passers-by can't open it.
+- **Settings:** the gear button at the bottom right, Ctrl+Shift+S, or ⌘, on a
+  Mac. With an admin PIN set, the kiosk asks for it first.
+- **Shortcuts:** F11 (⌃⌘F on a Mac) toggles full screen; Ctrl+Q (⌘Q) quits.
 - **Revoking:** a device revoked in HR → Kiosks is refused immediately.
 
 ## Updates
@@ -167,4 +191,5 @@ The protocol is defined by Voltrus ERP. Each request carries four headers:
 | Endpoint | Purpose |
 |---|---|
 | `GET /api/hr/kiosk/pull` | employees, face templates (`model` must be `sface-2021dec-int8`), threshold and margin |
+| `POST /api/hr/kiosk/enroll` | `{pin, employee_id, consent, replace, model, embeddings}`: enrol at the kiosk (admin PIN required) |
 | `POST /api/hr/kiosk/push` | `{entries: [{local_id, payload: {employee_id, event_type: in\|out, ts, confidence}}]}`; each entry is answered `applied`, `duplicate`, `rejected` or `retry` |

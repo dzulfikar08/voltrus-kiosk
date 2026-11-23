@@ -22,12 +22,46 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-actions!(kiosk, [OpenSetup, ToggleFullscreen]);
+mod admin;
 
-#[derive(PartialEq)]
+#[cfg(target_os = "macos")]
+const SETTINGS_KEYS: &str = "⌘ ,";
+#[cfg(not(target_os = "macos"))]
+const SETTINGS_KEYS: &str = "Ctrl Shift S";
+#[cfg(target_os = "macos")]
+const FULLSCREEN_KEYS: &str = "⌃ ⌘ F";
+#[cfg(not(target_os = "macos"))]
+const FULLSCREEN_KEYS: &str = "F11";
+#[cfg(target_os = "macos")]
+const QUIT_KEYS: &str = "⌘ Q";
+#[cfg(not(target_os = "macos"))]
+const QUIT_KEYS: &str = "Ctrl Q";
+
+actions!(
+    kiosk,
+    [
+        OpenSetup,
+        ToggleFullscreen,
+        Quit,
+        HideApp,
+        HideOthers,
+        ShowAll
+    ]
+);
+
+#[derive(Clone, Copy, PartialEq)]
 enum Screen {
     Setup,
     Kiosk,
+    /// The admin PIN pad, then the screen it guards.
+    Pin(Gate),
+    Enroll,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum Gate {
+    Setup,
+    Enroll,
 }
 
 pub struct KioskApp {
@@ -44,6 +78,12 @@ pub struct KioskApp {
     connecting: bool,
     setup_message: Option<(bool, String)>,
     copied: Option<(&'static str, Instant)>,
+    pin_entry: String,
+    pin_wrong: bool,
+    /// The admin PIN typed this visit; forgotten on the way back to the kiosk.
+    admin_pin: Option<String>,
+    enroll: admin::Enroll,
+    search: Entity<InputState>,
 }
 
 impl KioskApp {
@@ -67,6 +107,8 @@ impl KioskApp {
             s.set_value(config.camera_index.to_string(), window, cx);
             s
         });
+        let search =
+            cx.new(|cx| InputState::new(window, cx).placeholder(t(config.lang, "enroll.search")));
         let focus = cx.focus_handle();
         focus.focus(window, cx);
         let screen = if config.is_configured() && shared.gallery.lock().is_some() {
@@ -110,6 +152,11 @@ impl KioskApp {
             connecting: false,
             setup_message: None,
             copied: None,
+            pin_entry: String::new(),
+            pin_wrong: false,
+            admin_pin: None,
+            enroll: admin::Enroll::default(),
+            search,
         }
     }
 
@@ -243,8 +290,9 @@ impl KioskApp {
                 v_flex()
                     .gap_2()
                     .child(caption(t(lang, "setup.shortcuts")))
-                    .child(shortcut("Ctrl Shift S", t(lang, "setup.shortcut.setup")))
-                    .child(shortcut("F11", t(lang, "setup.shortcut.full"))),
+                    .child(shortcut(SETTINGS_KEYS, t(lang, "setup.shortcut.setup")))
+                    .child(shortcut(FULLSCREEN_KEYS, t(lang, "setup.shortcut.full")))
+                    .child(shortcut(QUIT_KEYS, t(lang, "setup.shortcut.quit"))),
             );
 
         let lang_switch = segmented(
@@ -304,6 +352,7 @@ impl KioskApp {
         });
 
         let actions = h_flex()
+            .flex_wrap()
             .gap_3()
             .child(
                 Button::new("connect")
@@ -322,12 +371,10 @@ impl KioskApp {
                     Button::new("back")
                         .large()
                         .label(t(lang, "setup.back"))
-                        .on_click(cx.listener(|this, _, _, cx| {
-                            this.screen = Screen::Kiosk;
-                            cx.notify();
-                        })),
+                        .on_click(cx.listener(|this, _, _, cx| this.go_kiosk(cx))),
                 )
-            });
+            })
+            .when(connected, |el| el.child(self.enroll_button(cx)));
 
         let form = v_flex()
             .flex_1()
@@ -756,6 +803,25 @@ impl KioskApp {
                             .pl_1()
                             .text_color(P::dim())
                             .child(format!("v{}", crate::updater::VERSION)),
+                    )
+                    .child(
+                        div()
+                            .id("open-settings")
+                            .ml_1()
+                            .size(px(30.))
+                            .rounded_full()
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .cursor_pointer()
+                            .bg(P::surface())
+                            .border_1()
+                            .border_color(P::line())
+                            .hover(|s| s.bg(P::raised()))
+                            .child(icon("settings", 15., P::muted()))
+                            .on_click(cx.listener(|this, _, window, cx| {
+                                this.open_admin(Gate::Setup, window, cx)
+                            })),
                     ),
             );
 
@@ -1386,10 +1452,13 @@ impl Render for KioskApp {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let title: SharedString = t(self.lang(), "title").into();
         window.set_window_title(&title);
-        let body = if self.screen == Screen::Setup {
-            self.render_setup(cx)
-        } else {
-            self.render_kiosk(cx)
+        // A finished enrolment capture uploads itself.
+        self.poll_capture(cx);
+        let body = match self.screen {
+            Screen::Setup => self.render_setup(cx),
+            Screen::Kiosk => self.render_kiosk(cx),
+            Screen::Pin(gate) => self.render_pin(gate, cx),
+            Screen::Enroll => self.render_enroll(window, cx),
         };
         div()
             .size_full()
@@ -1401,10 +1470,14 @@ impl Render for KioskApp {
             .text_color(P::text())
             .key_context("Kiosk")
             .track_focus(&self.focus)
-            .on_action(cx.listener(|this, _: &OpenSetup, _, cx| {
-                this.screen = Screen::Setup;
-                cx.notify();
+            .on_action(cx.listener(|this, _: &OpenSetup, window, cx| {
+                this.open_admin(Gate::Setup, window, cx)
             }))
+            .on_key_down(
+                cx.listener(|this, event: &gpui_kit::KeyDownEvent, window, cx| {
+                    this.pin_key(event, window, cx)
+                }),
+            )
             .on_action(cx.listener(|_, _: &ToggleFullscreen, window, _| window.toggle_fullscreen()))
             .child(body)
     }

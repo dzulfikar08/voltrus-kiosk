@@ -4,7 +4,7 @@
 
 use crate::face::engine::Engine;
 use crate::face::math::{ANTISPOOF_THRESH, FACE_MODEL, dot};
-use crate::state::{Mode, Seen, Shared, Tone};
+use crate::state::{CaptureHint, Mode, Seen, Shared, Tone};
 use crate::store::{Event, EventStatus, EventType, Gallery, Payload};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -93,6 +93,82 @@ fn event_type(shared: &Shared, employee_id: &str) -> EventType {
     }
 }
 
+/// Smallest face side (frame pixels) taken as an enrolment sample.
+const ENROL_MIN_FACE: f32 = 110.0;
+/// Time between enrolment samples, so the person can turn a little.
+const ENROL_SPACING: Duration = Duration::from_millis(700);
+
+/// One frame of an enrolment: take it as a sample if exactly one live,
+/// large enough face is in view and it is not a copy of the last sample.
+fn capture_step(shared: &Shared, engine: &mut Engine, frame: &crate::face::math::Rgb) {
+    shared.set_seen(Seen::Matching);
+    let faces = match engine.detect(frame) {
+        Ok(f) => f,
+        Err(e) => {
+            *shared.engine_error.lock() = Some(format!("{e:#}"));
+            return;
+        }
+    };
+    let hint = |h: CaptureHint| {
+        if let Some(c) = shared.capture.lock().as_mut() {
+            c.hint = h;
+        }
+    };
+    let face = match faces.as_slice() {
+        [] => {
+            shared.set_face_box(None);
+            return hint(CaptureHint::NoFace);
+        }
+        [one] => one.clone(),
+        _ => {
+            shared.set_face_box(None);
+            return hint(CaptureHint::TooMany);
+        }
+    };
+    let side = (face.bbox[2] - face.bbox[0]).min(face.bbox[3] - face.bbox[1]);
+    if side < ENROL_MIN_FACE {
+        shared.set_face_box(Some((face.bbox, Tone::Neutral)));
+        return hint(CaptureHint::TooSmall);
+    }
+    if engine
+        .liveness(frame, &face)
+        .is_some_and(|p| p < ANTISPOOF_THRESH)
+    {
+        shared.set_face_box(Some((face.bbox, Tone::Reject)));
+        return hint(CaptureHint::NotLive);
+    }
+    let ready =
+        shared.capture.lock().as_ref().is_some_and(|c| {
+            !c.done() && c.last_taken.is_none_or(|t| t.elapsed() >= ENROL_SPACING)
+        });
+    if !ready {
+        shared.set_face_box(Some((face.bbox, Tone::Neutral)));
+        return hint(CaptureHint::Hold);
+    }
+    let embedding = match engine.embed_face(frame, &face) {
+        Ok(e) => e,
+        Err(e) => {
+            *shared.engine_error.lock() = Some(format!("{e:#}"));
+            return;
+        }
+    };
+    let mut slot = shared.capture.lock();
+    let Some(capture) = slot.as_mut() else { return };
+    // A sample identical to the last one adds nothing.
+    if capture
+        .samples
+        .last()
+        .is_some_and(|last| dot(last, &embedding) > 0.995)
+    {
+        capture.hint = CaptureHint::Hold;
+        return;
+    }
+    capture.samples.push(embedding);
+    capture.last_taken = Some(Instant::now());
+    capture.hint = CaptureHint::Taken;
+    shared.set_face_box(Some((face.bbox, Tone::Match)));
+}
+
 pub fn spawn(shared: Arc<Shared>, models: PathBuf, now_iso: impl Fn() -> String + Send + 'static) {
     std::thread::Builder::new()
         .name("recognizer".into())
@@ -122,6 +198,15 @@ pub fn spawn(shared: Arc<Shared>, models: PathBuf, now_iso: impl Fn() -> String 
                 };
                 last_frame = Some(n);
                 let started = Instant::now();
+                if shared.capture.lock().is_some() {
+                    pending = None;
+                    capture_step(&shared, &mut engine, &frame);
+                    let spent = started.elapsed();
+                    if spent < ACTIVE_PERIOD {
+                        std::thread::sleep(ACTIVE_PERIOD - spent);
+                    }
+                    continue;
+                }
                 let result = engine.embed(&frame);
                 let gallery = shared.gallery.lock().clone();
                 match (result, gallery) {

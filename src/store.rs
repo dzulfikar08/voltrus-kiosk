@@ -163,7 +163,12 @@ pub struct PullSettings {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct DeviceInfo {
     #[serde(default)]
+    pub id: Option<String>,
+    #[serde(default)]
     pub name: Option<String>,
+    /// hex(sha256("voltrus-kiosk-pin:{id}:{pin}")) when HR set an admin PIN.
+    #[serde(default)]
+    pub admin_pin_hash: Option<String>,
     #[serde(default)]
     pub location: Option<String>,
 }
@@ -188,6 +193,26 @@ impl Gallery {
     pub fn save(&self) -> Result<()> {
         write_json(&home().join("gallery.json"), self)
     }
+    /// Whether `pin` is this kiosk's admin PIN (true when none is set).
+    pub fn pin_matches(&self, pin: &str) -> bool {
+        match (&self.device.id, &self.device.admin_pin_hash) {
+            (_, None) => true,
+            (Some(id), Some(hash)) => {
+                use sha2::{Digest, Sha256};
+                let digest = Sha256::digest(format!("voltrus-kiosk-pin:{id}:{pin}").as_bytes());
+                hex::encode(digest).eq_ignore_ascii_case(hash)
+            }
+            (None, Some(_)) => false,
+        }
+    }
+
+    pub fn templates_of(&self, employee_id: &str) -> usize {
+        self.faces
+            .iter()
+            .filter(|f| f.employee_id == employee_id)
+            .count()
+    }
+
     pub fn name_of(&self, employee_id: &str) -> String {
         self.employees
             .iter()
@@ -286,5 +311,25 @@ impl Events {
             .iter()
             .rev()
             .find(|e| e.payload.employee_id == employee_id && e.payload.ts.as_str() >= since)
+    }
+}
+
+#[cfg(test)]
+mod pin_tests {
+    use super::*;
+
+    #[test]
+    fn pin_hash_matches_the_server() {
+        let mut g: Gallery = serde_json::from_str(
+            r#"{"server_time":"","employees":[],"faces":[],"settings":{"face_model":"m","face_threshold":0.45,"face_margin":0.08}}"#,
+        )
+        .unwrap();
+        assert!(g.pin_matches("anything"), "no PIN set");
+        g.device.id = Some("dev-1".into());
+        // hex(sha256("voltrus-kiosk-pin:dev-1:482913"))
+        g.device.admin_pin_hash =
+            Some("ba00e1167dd7268176b5cc7868d6a6816be6fe926232f84bdc1038e4e8fd5975".into());
+        assert!(g.pin_matches("482913"));
+        assert!(!g.pin_matches("000000"));
     }
 }

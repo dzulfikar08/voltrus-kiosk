@@ -55,6 +55,42 @@ pub enum UpdateState {
     Failed(String),
 }
 
+/// Why the last frame was not taken as an enrolment sample.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CaptureHint {
+    NoFace,
+    TooMany,
+    TooSmall,
+    NotLive,
+    Hold,
+    Taken,
+}
+
+/// Face samples collected for enrolment at the kiosk. While one is open the
+/// recognizer feeds it and records no attendance.
+#[derive(Debug, Clone)]
+pub struct Capture {
+    pub wanted: usize,
+    pub samples: Vec<Vec<f32>>,
+    pub hint: CaptureHint,
+    pub last_taken: Option<Instant>,
+}
+
+impl Capture {
+    pub fn new(wanted: usize) -> Self {
+        Self {
+            wanted,
+            samples: Vec::new(),
+            hint: CaptureHint::NoFace,
+            last_taken: None,
+        }
+    }
+
+    pub fn done(&self) -> bool {
+        self.samples.len() >= self.wanted
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct SyncStatus {
     pub online: bool,
@@ -79,6 +115,8 @@ pub struct Shared {
     pub update: Mutex<UpdateState>,
     /// Asks the update thread to check now.
     pub update_now: Mutex<Option<Sender<()>>>,
+    /// Enrolment in progress at the kiosk.
+    pub capture: Mutex<Option<Capture>>,
 }
 
 impl Shared {
@@ -97,6 +135,7 @@ impl Shared {
             wake: Mutex::new(None),
             update: Mutex::new(UpdateState::Idle),
             update_now: Mutex::new(None),
+            capture: Mutex::new(None),
         })
     }
 

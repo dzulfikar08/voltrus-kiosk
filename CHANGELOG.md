@@ -2,6 +2,17 @@
 
 All notable changes to Voltrus Kiosk. Versions follow [Semantic Versioning](https://semver.org).
 
+## [0.3.0] - 2026-11-23
+
+Enrol faces at the kiosk.
+
+- **Enrol a face** from the kiosk: pick the employee, they read and accept the consent notice on screen (UU PDP), and the kiosk takes five samples while asking them to turn their head a little. The samples go straight to Voltrus and every kiosk recognises the person from its next pull; this one at once. Needs Voltrus ERP with db/0104.
+- **Admin PIN:** HR sets one per kiosk in HR → Kiosks. The kiosk then asks for it before opening its settings or enrolling, and the server checks it again for every enrolment (five wrong PINs lock enrolment for 15 minutes).
+- A settings button on the kiosk screen. Ctrl+Shift+S still works.
+- macOS: a proper menu bar with Settings (⌘,), Hide (⌘H), Full Screen (⌃⌘F) and Quit (⌘Q). Closing the window quits on every platform; Ctrl+Q quits on Windows and Linux.
+- The Voltrus icon on the app: in the macOS app bundle and the Windows .exe.
+- Releases include `voltrus-kiosk-X-universal-macos-app.zip`, a ready-to-run **Voltrus Kiosk.app** for first installs on a Mac.
+
 ## [0.2.1] - 2026-11-23
 
 Uses much less CPU.

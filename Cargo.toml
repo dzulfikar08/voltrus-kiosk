@@ -1,6 +1,6 @@
 [package]
 name = "voltrus-kiosk"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2024"
 description = "Voltrus ERP face attendance kiosk (GPUI, offline-first)"
 license = "AGPL-3.0-or-later"
@@ -35,6 +35,10 @@ parking_lot = "0.12"
 # Preview frames for GPUI (RenderImage takes image::Frame; same 0.25 as GPUI)
 # and stills for `voltrus-kiosk embed`.
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+
+[target.'cfg(windows)'.build-dependencies]
+# Icon and version info in the .exe (build.rs).
+winresource = "0.1"
 
 [profile.release]
 codegen-units = 1

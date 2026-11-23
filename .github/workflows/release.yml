@@ -145,6 +145,8 @@ jobs:
           lipo -create -output "dist/voltrus-kiosk-${VERSION}-universal-macos" \
             target/aarch64-apple-darwin/release/voltrus-kiosk target/x86_64-apple-darwin/release/voltrus-kiosk
           "dist/voltrus-kiosk-${VERSION}-universal-macos" --version | grep -F "voltrus-kiosk ${VERSION} "
+          # First installs: the same binary as an app bundle with the icon and camera prompt.
+          ./scripts/macos-app.sh "$VERSION" "dist/voltrus-kiosk-${VERSION}-universal-macos" "dist/voltrus-kiosk-${VERSION}-universal-macos-app.zip"
       - uses: actions/upload-artifact@v4
         with:
           name: release-macos
@@ -218,7 +220,7 @@ jobs:
 
           - Linux x86_64: \`voltrus-kiosk-${VERSION}-x86_64-linux\` (glibc 2.39+: Ubuntu 24.04, Debian 13 or later); ARM64: \`voltrus-kiosk-${VERSION}-aarch64-linux\`. Run \`chmod +x\` first.
           - Windows 10/11 x64: unzip \`voltrus-kiosk-${VERSION}-x86_64-windows.zip\` (the exe needs the DirectML.dll beside it; unsigned: SmartScreen → More info → Run anyway).
-          - macOS 11+: \`voltrus-kiosk-${VERSION}-universal-macos\` (unsigned: \`xattr -d com.apple.quarantine\` it, then allow camera access).
+          - macOS 11+: unzip \`voltrus-kiosk-${VERSION}-universal-macos-app.zip\` and move **Voltrus Kiosk.app** to your Applications folder (unsigned: run \`xattr -dr com.apple.quarantine "Voltrus Kiosk.app"\` once, then allow camera access). The bare \`voltrus-kiosk-${VERSION}-universal-macos\` binary is what installed kiosks update to.
 
           Installed kiosks update by themselves. Verify downloads with \`sha256sum -c SHA256SUMS --ignore-missing\`.
           EOF

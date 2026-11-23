@@ -456,6 +456,272 @@ pub fn t(lang: Lang, key: &str) -> &'static str {
                 "Install updates automatically"
             }
         }
+        "setup.shortcut.quit" => {
+            if id {
+                "Keluar"
+            } else {
+                "Quit"
+            }
+        }
+        "pin.title" => {
+            if id {
+                "Masukkan PIN admin"
+            } else {
+                "Enter the admin PIN"
+            }
+        }
+        "pin.hint" => {
+            if id {
+                "PIN diatur HR di Voltrus: HR → Kios absensi."
+            } else {
+                "HR sets it in Voltrus: HR → Kiosks."
+            }
+        }
+        "pin.wrong" => {
+            if id {
+                "PIN salah, coba lagi."
+            } else {
+                "Wrong PIN, try again."
+            }
+        }
+        "pin.cancel" => {
+            if id {
+                "Batal"
+            } else {
+                "Cancel"
+            }
+        }
+        "enroll.open" => {
+            if id {
+                "Daftarkan wajah"
+            } else {
+                "Enrol a face"
+            }
+        }
+        "enroll.needpin" => {
+            if id {
+                "Atur PIN admin kios ini di Voltrus (HR → Kios absensi) dulu."
+            } else {
+                "Set this kiosk's admin PIN in Voltrus (HR → Kiosks) first."
+            }
+        }
+        "enroll.title" => {
+            if id {
+                "Daftarkan wajah"
+            } else {
+                "Enrol a face"
+            }
+        }
+        "enroll.subtitle" => {
+            if id {
+                "Wajah tersimpan di Voltrus dan dipakai semua kios."
+            } else {
+                "Faces are saved in Voltrus and used by every kiosk."
+            }
+        }
+        "enroll.close" => {
+            if id {
+                "Kembali ke kios"
+            } else {
+                "Back to the kiosk"
+            }
+        }
+        "enroll.search" => {
+            if id {
+                "Cari nama atau ID karyawan"
+            } else {
+                "Search by name or employee ID"
+            }
+        }
+        "enroll.pick" => {
+            if id {
+                "Pilih karyawan"
+            } else {
+                "Choose the employee"
+            }
+        }
+        "enroll.none" => {
+            if id {
+                "Tidak ada karyawan yang cocok"
+            } else {
+                "No matching employees"
+            }
+        }
+        "enroll.enrolled" => {
+            if id {
+                "Terdaftar"
+            } else {
+                "Enrolled"
+            }
+        }
+        "enroll.notenrolled" => {
+            if id {
+                "Belum terdaftar"
+            } else {
+                "Not enrolled"
+            }
+        }
+        "enroll.consent.title" => {
+            if id {
+                "Persetujuan data biometrik"
+            } else {
+                "Consent to biometric data"
+            }
+        }
+        "enroll.consent.body" => {
+            if id {
+                "Wajah Anda akan diproses untuk absensi perusahaan. Data wajah disimpan sebagai angka (bukan foto) dan dihapus bila persetujuan dicabut, sesuai UU Pelindungan Data Pribadi. Minta karyawan membaca ini dan menekan Setuju sendiri."
+            } else {
+                "Your face will be processed for company attendance. It is stored as numbers (not a photo) and deleted if consent is withdrawn, under Indonesia's Personal Data Protection Law. Let the employee read this and press Agree themselves."
+            }
+        }
+        "enroll.consent.yes" => {
+            if id {
+                "Saya setuju, mulai"
+            } else {
+                "I agree, start"
+            }
+        }
+        "enroll.back" => {
+            if id {
+                "Pilih karyawan lain"
+            } else {
+                "Choose someone else"
+            }
+        }
+        "enroll.cancel" => {
+            if id {
+                "Batal"
+            } else {
+                "Cancel"
+            }
+        }
+        "enroll.pose.front" => {
+            if id {
+                "Lihat lurus ke kamera"
+            } else {
+                "Look straight at the camera"
+            }
+        }
+        "enroll.pose.left" => {
+            if id {
+                "Tolehkan sedikit ke kiri"
+            } else {
+                "Turn a little to the left"
+            }
+        }
+        "enroll.pose.right" => {
+            if id {
+                "Tolehkan sedikit ke kanan"
+            } else {
+                "Turn a little to the right"
+            }
+        }
+        "enroll.pose.up" => {
+            if id {
+                "Angkat dagu sedikit"
+            } else {
+                "Lift your chin a little"
+            }
+        }
+        "enroll.pose.front2" => {
+            if id {
+                "Lihat lurus sekali lagi"
+            } else {
+                "Look straight once more"
+            }
+        }
+        "enroll.hint.noface" => {
+            if id {
+                "Belum ada wajah terlihat"
+            } else {
+                "No face in view yet"
+            }
+        }
+        "enroll.hint.many" => {
+            if id {
+                "Hanya satu orang di depan kamera"
+            } else {
+                "Only one person in front of the camera"
+            }
+        }
+        "enroll.hint.small" => {
+            if id {
+                "Mendekat ke kamera"
+            } else {
+                "Come closer to the camera"
+            }
+        }
+        "enroll.hint.notlive" => {
+            if id {
+                "Wajah asli diperlukan, bukan foto atau layar"
+            } else {
+                "A real face is needed, not a photo or screen"
+            }
+        }
+        "enroll.hint.hold" => {
+            if id {
+                "Tahan sebentar…"
+            } else {
+                "Hold still…"
+            }
+        }
+        "enroll.hint.taken" => {
+            if id {
+                "Bagus!"
+            } else {
+                "Got it!"
+            }
+        }
+        "enroll.saving" => {
+            if id {
+                "Menyimpan ke Voltrus…"
+            } else {
+                "Saving to Voltrus…"
+            }
+        }
+        "enroll.done" => {
+            if id {
+                "Wajah terdaftar:"
+            } else {
+                "Face enrolled:"
+            }
+        }
+        "enroll.done.detail" => {
+            if id {
+                "sampel wajah tersimpan. Bisa langsung absen."
+            } else {
+                "face samples saved. They can check in now."
+            }
+        }
+        "enroll.failed" => {
+            if id {
+                "Pendaftaran gagal"
+            } else {
+                "Enrolment failed"
+            }
+        }
+        "enroll.retry" => {
+            if id {
+                "Ambil ulang"
+            } else {
+                "Take again"
+            }
+        }
+        "enroll.another" => {
+            if id {
+                "Daftarkan karyawan lain"
+            } else {
+                "Enrol someone else"
+            }
+        }
+        "enroll.finish" => {
+            if id {
+                "Selesai"
+            } else {
+                "Done"
+            }
+        }
         _ => "?",
     }
 }

@@ -27,8 +27,8 @@ mod updater;
 
 use gpui_kit::component::{Root, Theme, ThemeMode};
 use gpui_kit::{
-    AppContext as _, Bounds, KeyBinding, TitlebarOptions, WindowBounds, WindowOptions, point, px,
-    size,
+    AppContext as _, Bounds, KeyBinding, Menu, MenuItem, TitlebarOptions, WindowBounds,
+    WindowOptions, point, px, size,
 };
 use std::sync::Arc;
 
@@ -193,7 +193,39 @@ fn main() -> anyhow::Result<()> {
             cx.bind_keys([
                 KeyBinding::new("ctrl-shift-s", ui::OpenSetup, None),
                 KeyBinding::new("f11", ui::ToggleFullscreen, None),
+                #[cfg(target_os = "macos")]
+                KeyBinding::new("cmd-q", ui::Quit, None),
+                #[cfg(not(target_os = "macos"))]
+                KeyBinding::new("ctrl-q", ui::Quit, None),
+                #[cfg(target_os = "macos")]
+                KeyBinding::new("cmd-,", ui::OpenSetup, None),
+                #[cfg(target_os = "macos")]
+                KeyBinding::new("ctrl-cmd-f", ui::ToggleFullscreen, None),
+                #[cfg(target_os = "macos")]
+                KeyBinding::new("cmd-h", ui::HideApp, None),
+                #[cfg(target_os = "macos")]
+                KeyBinding::new("alt-cmd-h", ui::HideOthers, None),
             ]);
+            cx.on_action(|_: &ui::Quit, cx| cx.quit());
+            cx.on_action(|_: &ui::HideApp, cx| cx.hide());
+            cx.on_action(|_: &ui::HideOthers, cx| cx.hide_other_apps());
+            cx.on_action(|_: &ui::ShowAll, cx| cx.unhide_other_apps());
+            // The macOS menu bar (other platforms ignore it).
+            cx.set_menus([
+                Menu::new("Voltrus Kiosk").items([
+                    MenuItem::action("Settings…", ui::OpenSetup),
+                    MenuItem::separator(),
+                    MenuItem::action("Hide Voltrus Kiosk", ui::HideApp),
+                    MenuItem::action("Hide Others", ui::HideOthers),
+                    MenuItem::action("Show All", ui::ShowAll),
+                    MenuItem::separator(),
+                    MenuItem::action("Quit Voltrus Kiosk", ui::Quit),
+                ]),
+                Menu::new("View")
+                    .items([MenuItem::action("Enter Full Screen", ui::ToggleFullscreen)]),
+            ]);
+            // One window: closing it ends the app, as on Windows and Linux.
+            cx.on_window_closed(|cx, _| cx.quit()).detach();
             let options = WindowOptions {
                 window_bounds: Some(WindowBounds::Windowed(Bounds {
                     origin: point(px(0.), px(0.)),

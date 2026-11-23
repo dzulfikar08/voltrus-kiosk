@@ -166,6 +166,27 @@ impl Client {
         Ok(serde_json::from_value(value)?)
     }
 
+    /// Enrol face samples for an employee at the kiosk (needs the admin PIN).
+    /// Returns how many templates the employee has now.
+    pub fn enroll(
+        &self,
+        pin: &str,
+        employee_id: &str,
+        embeddings: &[Vec<f32>],
+    ) -> Result<usize, CallError> {
+        let body = serde_json::json!({
+            "pin": pin,
+            "employee_id": employee_id,
+            "consent": true,
+            "replace": true,
+            "model": crate::face::math::FACE_MODEL,
+            "embeddings": embeddings,
+        })
+        .to_string();
+        let value = self.call("POST", "/api/hr/kiosk/enroll", &body)?;
+        Ok(value.get("templates").and_then(|v| v.as_u64()).unwrap_or(0) as usize)
+    }
+
     /// Push queued events; returns (local_id, status, error) per entry.
     /// `retry` answers come back as Queued.
     pub fn push(&self, events: &[Event]) -> Result<Vec<(String, EventStatus, Option<String>)>> {
