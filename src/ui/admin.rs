@@ -125,7 +125,19 @@ impl KioskApp {
         cx.notify();
     }
 
-    /// Digits, Backspace, Enter and Escape on the PIN pad.
+    /// Esc: leave the PIN pad, enrolment, or Setup (once connected).
+    pub(super) fn dismiss(&mut self, cx: &mut Context<Self>) {
+        let leave = match self.screen {
+            Screen::Pin(_) | Screen::Enroll => true,
+            Screen::Setup => self.shared.gallery.lock().is_some(),
+            Screen::Kiosk => false,
+        };
+        if leave {
+            self.go_kiosk(cx);
+        }
+    }
+
+    /// Digits, Backspace and Enter on the PIN pad.
     pub(super) fn pin_key(
         &mut self,
         event: &KeyDownEvent,
@@ -142,7 +154,6 @@ impl KioskApp {
                 cx.notify();
             }
             "enter" => self.pin_submit(gate, window, cx),
-            "escape" => self.go_kiosk(cx),
             k if k.len() == 1 && k.chars().all(|c| c.is_ascii_digit()) => {
                 self.pin_push(k.chars().next().unwrap_or('0'), cx)
             }
@@ -660,7 +671,12 @@ impl KioskApp {
             .border_2()
             .border_color(P::accent().alpha(0.5))
             .when_some(self.preview.clone(), |el, p| {
-                el.child(img(p).size_full().object_fit(ObjectFit::Cover))
+                el.child(
+                    img(p)
+                        .size_full()
+                        .rounded(px(22.))
+                        .object_fit(ObjectFit::Cover),
+                )
             });
         let progress = h_flex().gap_2().children((0..SAMPLES).map(|i| {
             div().flex_1().h(px(6.)).rounded_full().bg(if i < taken {

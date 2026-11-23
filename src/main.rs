@@ -193,6 +193,7 @@ fn main() -> anyhow::Result<()> {
             cx.bind_keys([
                 KeyBinding::new("ctrl-shift-s", ui::OpenSetup, None),
                 KeyBinding::new("f11", ui::ToggleFullscreen, None),
+                KeyBinding::new("escape", ui::Dismiss, Some("Kiosk")),
                 #[cfg(target_os = "macos")]
                 KeyBinding::new("cmd-q", ui::Quit, None),
                 #[cfg(not(target_os = "macos"))]

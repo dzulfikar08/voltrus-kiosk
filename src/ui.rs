@@ -45,7 +45,8 @@ actions!(
         Quit,
         HideApp,
         HideOthers,
-        ShowAll
+        ShowAll,
+        Dismiss
     ]
 );
 
@@ -237,6 +238,12 @@ impl KioskApp {
     fn render_setup(&mut self, cx: &mut Context<Self>) -> AnyElement {
         let lang = self.lang();
         let connected = self.shared.gallery.lock().is_some();
+        let pin_set = self
+            .shared
+            .gallery
+            .lock()
+            .as_ref()
+            .is_some_and(|g| g.device.admin_pin_hash.is_some());
         let has_server = !self.server.read(cx).value().trim().is_empty();
 
         // Which step the person is on: the first one not done yet.
@@ -262,6 +269,10 @@ impl KioskApp {
             .gap_10()
             .border_r_1()
             .border_color(P::line())
+            // GPUI clips to rectangles: round the gradient itself so it stays
+            // inside the card's corners.
+            .rounded_tl(px(23.))
+            .rounded_bl(px(23.))
             .bg(linear_gradient(
                 160.,
                 linear_color_stop(P::accent().alpha(0.10), 0.),
@@ -426,6 +437,17 @@ impl KioskApp {
             .child(identity)
             .children(message)
             .child(actions)
+            .when(connected && !pin_set, |el| {
+                el.child(
+                    h_flex()
+                        .gap_2()
+                        .items_center()
+                        .text_xs()
+                        .text_color(P::muted())
+                        .child(icon("lock-keyhole", 13., P::muted()))
+                        .child(t(lang, "enroll.needpin")),
+                )
+            })
             .child(self.render_update_row(cx));
 
         div()
@@ -436,6 +458,7 @@ impl KioskApp {
             .p_8()
             .child(
                 h_flex()
+                    .relative()
                     .items_stretch()
                     .w(px(1000.))
                     .max_w_full()
@@ -447,7 +470,25 @@ impl KioskApp {
                     .bg(P::surface())
                     .shadow_2xl()
                     .child(brand)
-                    .child(form),
+                    .child(form)
+                    .when(connected, |el| {
+                        el.child(
+                            div()
+                                .id("setup-close")
+                                .absolute()
+                                .top_4()
+                                .right_4()
+                                .size(px(34.))
+                                .rounded_full()
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .cursor_pointer()
+                                .hover(|s| s.bg(P::raised()))
+                                .child(icon("x", 18., P::muted()))
+                                .on_click(cx.listener(|this, _, _, cx| this.go_kiosk(cx))),
+                        )
+                    }),
             )
             .into_any_element()
     }
@@ -857,7 +898,12 @@ impl KioskApp {
             .border_2()
             .border_color(ring)
             .map(|el| match (&self.preview, &camera_error) {
-                (Some(p), _) => el.child(img(p.clone()).size_full().object_fit(ObjectFit::Cover)),
+                (Some(p), _) => el.child(
+                    img(p.clone())
+                        .size_full()
+                        .rounded(px(22.))
+                        .object_fit(ObjectFit::Cover),
+                ),
                 (None, Some(e)) => el.child(
                     v_flex()
                         .size_full()
@@ -1164,11 +1210,17 @@ fn status_card(
             .bg(P::surface())
             .border_1()
             .border_color(tone.alpha(0.3))
-            .child(div().absolute().inset_0().bg(linear_gradient(
-                180.,
-                linear_color_stop(tone.alpha(0.10), 0.),
-                linear_color_stop(tone.alpha(0.0), 0.8),
-            )))
+            .child(
+                div()
+                    .absolute()
+                    .inset_0()
+                    .rounded(px(19.))
+                    .bg(linear_gradient(
+                        180.,
+                        linear_color_stop(tone.alpha(0.10), 0.),
+                        linear_color_stop(tone.alpha(0.0), 0.8),
+                    )),
+            )
     };
     let message = |icon_name: &'static str, tone: Hsla, title: String, hint: &'static str| {
         card(tone)
@@ -1470,6 +1522,7 @@ impl Render for KioskApp {
             .text_color(P::text())
             .key_context("Kiosk")
             .track_focus(&self.focus)
+            .on_action(cx.listener(|this, _: &Dismiss, _, cx| this.dismiss(cx)))
             .on_action(cx.listener(|this, _: &OpenSetup, window, cx| {
                 this.open_admin(Gate::Setup, window, cx)
             }))

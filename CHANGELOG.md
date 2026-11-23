@@ -2,6 +2,12 @@
 
 All notable changes to Voltrus Kiosk. Versions follow [Semantic Versioning](https://semver.org).
 
+## [0.3.1] - 2026-11-23
+
+- Setup has a close button (✕) in its corner, and Esc leaves Setup, the PIN pad and enrolment.
+- Setup says why **Enrol a face** is greyed out: the kiosk has no admin PIN yet.
+- The green gradient in Setup, the result card's tint and the camera image no longer spill past their rounded corners.
+
 ## [0.3.0] - 2026-11-23
 
 Enrol faces at the kiosk.
