@@ -3,7 +3,7 @@
 //! the window.
 
 use crate::face::math::Rgb;
-use crate::state::Shared;
+use crate::state::{Shared, Tone};
 use gpui_kit::RenderImage;
 use nokhwa::Camera;
 use nokhwa::pixel_format::RgbFormat;
@@ -103,8 +103,8 @@ pub fn spawn(shared: Arc<Shared>, index: u32) {
 }
 
 /// Mirrored (a mirror is what people expect to see), BGRA, at most 960 wide,
-/// with the last face box outlined.
-fn preview(frame: &Rgb, face: Option<([f32; 4], bool)>) -> Arc<RenderImage> {
+/// with corner marks around the last face.
+fn preview(frame: &Rgb, face: Option<([f32; 4], Tone)>) -> Arc<RenderImage> {
     let step = frame.width.div_ceil(960).max(1);
     let (w, h) = (frame.width / step, frame.height / step);
     let mut bgra = vec![255u8; (w * h * 4) as usize];
@@ -118,33 +118,88 @@ fn preview(frame: &Rgb, face: Option<([f32; 4], bool)>) -> Arc<RenderImage> {
             bgra[d + 2] = frame.data[s];
         }
     }
-    if let Some((b, matched)) = face {
-        let color: [u8; 3] = if matched {
-            [94, 197, 34]
-        } else {
-            [11, 158, 245]
-        }; // BGR: green / amber
-        let to = |v: f32| (v / step as f32).round() as i64;
-        let (x1, x2) = ((w as i64 - 1) - to(b[2]), (w as i64 - 1) - to(b[0]));
-        let (y1, y2) = (to(b[1]), to(b[3]));
-        let thickness = (w as i64 / 240).max(2);
-        let mut put = |x: i64, y: i64| {
-            if x >= 0 && y >= 0 && x < w as i64 && y < h as i64 {
-                let d = ((y as u32 * w + x as u32) * 4) as usize;
-                bgra[d..d + 3].copy_from_slice(&color);
-            }
+    if let Some((b, tone)) = face {
+        // BGR. White while looking, Voltrus green on a match, red for a spoof.
+        let color: [u8; 3] = match tone {
+            Tone::Neutral => [245, 245, 245],
+            Tone::Match => [118, 230, 0],
+            Tone::Reject => [104, 84, 255],
         };
-        for t in 0..thickness {
-            for x in x1..=x2 {
-                put(x, y1 + t);
-                put(x, y2 - t);
-            }
-            for y in y1..=y2 {
-                put(x1 + t, y);
-                put(x2 - t, y);
-            }
-        }
+        let to = |v: f32| (v / step as f32).round() as i64;
+        // Pad the detector box a little so the corners frame the whole face.
+        let (bw, bh) = (to(b[2] - b[0]), to(b[3] - b[1]));
+        let pad = (bw.max(bh) / 10).max(4);
+        let x1 = (w as i64 - 1) - to(b[2]) - pad;
+        let x2 = (w as i64 - 1) - to(b[0]) + pad;
+        let (y1, y2) = (to(b[1]) - pad, to(b[3]) + pad);
+        corners(&mut bgra, w, h, (x1, y1, x2, y2), color);
     }
     let buffer = image::RgbaImage::from_raw(w, h, bgra).expect("preview buffer size");
     Arc::new(RenderImage::new([image::Frame::new(buffer)]))
+}
+
+/// Four rounded corner brackets around `(x1, y1, x2, y2)`, drawn as
+/// anti-aliased strokes.
+fn corners(
+    bgra: &mut [u8],
+    w: u32,
+    h: u32,
+    (x1, y1, x2, y2): (i64, i64, i64, i64),
+    color: [u8; 3],
+) {
+    let side = (x2 - x1).min(y2 - y1).max(8) as f32;
+    let arm = side * 0.22;
+    let radius = side * 0.07;
+    let half = (w as f32 / 320.0).max(1.6);
+    let (fx1, fy1, fx2, fy2) = (x1 as f32, y1 as f32, x2 as f32, y2 as f32);
+    // Distance from (px, py) to a corner bracket opening towards (sx, sy).
+    let bracket = |px: f32, py: f32, cx: f32, cy: f32, sx: f32, sy: f32| -> f32 {
+        // Local coordinates: the bracket runs along +u and +v from the corner.
+        let u = (px - cx) * sx;
+        let v = (py - cy) * sy;
+        let cu = u.clamp(radius, arm);
+        let cv = v.clamp(radius, arm);
+        let seg_u = (u - cu).hypot(v);
+        let seg_v = u.hypot(v - cv);
+        let arc = if u <= radius && v <= radius {
+            ((radius - u).hypot(radius - v) - radius).abs()
+        } else {
+            f32::MAX
+        };
+        seg_u.min(seg_v).min(arc)
+    };
+    let reach = (half + 2.0) as i64;
+    let boxes = [
+        (fx1, fy1, 1.0, 1.0),
+        (fx2, fy1, -1.0, 1.0),
+        (fx1, fy2, 1.0, -1.0),
+        (fx2, fy2, -1.0, -1.0),
+    ];
+    for (cx, cy, sx, sy) in boxes {
+        let (ax, ay) = (cx as i64, cy as i64);
+        let span = arm as i64 + reach;
+        let (xa, xb) = if sx > 0.0 {
+            (ax - reach, ax + span)
+        } else {
+            (ax - span, ax + reach)
+        };
+        let (ya, yb) = if sy > 0.0 {
+            (ay - reach, ay + span)
+        } else {
+            (ay - span, ay + reach)
+        };
+        for y in ya.max(0)..=yb.min(h as i64 - 1) {
+            for x in xa.max(0)..=xb.min(w as i64 - 1) {
+                let d = bracket(x as f32 + 0.5, y as f32 + 0.5, cx, cy, sx, sy);
+                let a = (half + 0.5 - d).clamp(0.0, 1.0);
+                if a > 0.0 {
+                    let i = ((y as u32 * w + x as u32) * 4) as usize;
+                    for c in 0..3 {
+                        let old = bgra[i + c] as f32;
+                        bgra[i + c] = (old + (color[c] as f32 - old) * a).round() as u8;
+                    }
+                }
+            }
+        }
+    }
 }

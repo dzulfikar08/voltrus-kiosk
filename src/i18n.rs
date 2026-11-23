@@ -122,16 +122,16 @@ pub fn t(lang: Lang, key: &str) -> &'static str {
         }
         "seen.unknown" => {
             if id {
-                "Tahan sebentar…"
+                "Wajah belum dikenali"
             } else {
-                "Hold still…"
+                "Face not recognised"
             }
         }
         "seen.notlive" => {
             if id {
-                "Wajah asli diperlukan, bukan foto atau layar"
+                "Wajah asli diperlukan"
             } else {
-                "A real face is needed, not a photo or screen"
+                "A real face is needed"
             }
         }
         "seen.again" => {
@@ -274,6 +274,245 @@ pub fn t(lang: Lang, key: &str) -> &'static str {
                 "Auto update: off"
             }
         }
+        "seen.nobody.hint" => {
+            if id {
+                "Berdiri sekitar satu meter dari kamera"
+            } else {
+                "Stand about a metre from the camera"
+            }
+        }
+        "seen.matching" => {
+            if id {
+                "Mengenali wajah…"
+            } else {
+                "Recognising…"
+            }
+        }
+        "seen.matching.hint" => {
+            if id {
+                "Tahan posisi sebentar"
+            } else {
+                "Hold still for a moment"
+            }
+        }
+        "seen.unknown.hint" => {
+            if id {
+                "Wajah Anda belum terdaftar. Minta HR mendaftarkannya di Voltrus."
+            } else {
+                "Your face is not enrolled. Ask HR to enrol it in Voltrus."
+            }
+        }
+        "seen.notlive.hint" => {
+            if id {
+                "Foto atau layar tidak bisa dipakai untuk absen"
+            } else {
+                "Photos and screens can't be used to check in"
+            }
+        }
+        "seen.again.hint" => {
+            if id {
+                "Absensi Anda sudah tercatat barusan"
+            } else {
+                "Your check-in was just recorded"
+            }
+        }
+        "seen.nofaces" => {
+            if id {
+                "Belum ada wajah terdaftar"
+            } else {
+                "No faces enrolled yet"
+            }
+        }
+        "seen.nofaces.hint" => {
+            if id {
+                "Daftarkan wajah karyawan di Voltrus (HR → Karyawan). Kios mengambil data baru tiap 5 menit."
+            } else {
+                "Enrol employees' faces in Voltrus (HR → Employees). The kiosk pulls new faces every 5 minutes."
+            }
+        }
+        "seen.nogallery" => {
+            if id {
+                "Kios belum terhubung"
+            } else {
+                "The kiosk is not connected"
+            }
+        }
+        "recent.empty" => {
+            if id {
+                "Belum ada absensi"
+            } else {
+                "No check-ins yet"
+            }
+        }
+        "live" => {
+            if id {
+                "LANGSUNG"
+            } else {
+                "LIVE"
+            }
+        }
+        "brand.tagline" => {
+            if id {
+                "Absensi wajah untuk Voltrus ERP"
+            } else {
+                "Face attendance for Voltrus ERP"
+            }
+        }
+        "setup.subtitle" => {
+            if id {
+                "Hubungkan kios ini ke server Voltrus ERP perusahaan Anda."
+            } else {
+                "Connect this kiosk to your company's Voltrus ERP server."
+            }
+        }
+        "setup.step1" => {
+            if id {
+                "Isi alamat server"
+            } else {
+                "Enter the server address"
+            }
+        }
+        "setup.step1.hint" => {
+            if id {
+                "Alamat yang dipakai untuk membuka Voltrus di browser."
+            } else {
+                "The address you open Voltrus with in a browser."
+            }
+        }
+        "setup.step2" => {
+            if id {
+                "Daftarkan kios"
+            } else {
+                "Register the kiosk"
+            }
+        }
+        "setup.step2.hint" => {
+            if id {
+                "Di Voltrus: HR → Kios absensi → Baru. Tempel Device UID dan public key."
+            } else {
+                "In Voltrus: HR → Kiosks → New. Paste the Device UID and public key."
+            }
+        }
+        "setup.step3" => {
+            if id {
+                "Simpan dan hubungkan"
+            } else {
+                "Save and connect"
+            }
+        }
+        "setup.step3.hint" => {
+            if id {
+                "Kios mengunduh model wajah dan data karyawan."
+            } else {
+                "The kiosk downloads the face models and employees."
+            }
+        }
+        "setup.identity" => {
+            if id {
+                "Identitas perangkat"
+            } else {
+                "Device identity"
+            }
+        }
+        "setup.copied" => {
+            if id {
+                "Tersalin"
+            } else {
+                "Copied"
+            }
+        }
+        "setup.update" => {
+            if id {
+                "Pembaruan"
+            } else {
+                "Updates"
+            }
+        }
+        "setup.shortcuts" => {
+            if id {
+                "Pintasan"
+            } else {
+                "Shortcuts"
+            }
+        }
+        "setup.shortcut.setup" => {
+            if id {
+                "Pengaturan"
+            } else {
+                "Setup"
+            }
+        }
+        "setup.shortcut.full" => {
+            if id {
+                "Layar penuh"
+            } else {
+                "Full screen"
+            }
+        }
+        "update.auto" => {
+            if id {
+                "Pasang pembaruan otomatis"
+            } else {
+                "Install updates automatically"
+            }
+        }
         _ => "?",
     }
+}
+
+/// "Senin, 23 November 2026" / "Monday, 23 November 2026".
+pub fn long_date(lang: Lang, date: chrono::NaiveDate) -> String {
+    use chrono::Datelike as _;
+    const DAYS_ID: [&str; 7] = [
+        "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu",
+    ];
+    const DAYS_EN: [&str; 7] = [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday",
+    ];
+    const MONTHS_ID: [&str; 12] = [
+        "Januari",
+        "Februari",
+        "Maret",
+        "April",
+        "Mei",
+        "Juni",
+        "Juli",
+        "Agustus",
+        "September",
+        "Oktober",
+        "November",
+        "Desember",
+    ];
+    const MONTHS_EN: [&str; 12] = [
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+    ];
+    let (days, months) = if lang == Lang::Id {
+        (DAYS_ID, MONTHS_ID)
+    } else {
+        (DAYS_EN, MONTHS_EN)
+    };
+    format!(
+        "{}, {} {} {}",
+        days[date.weekday().num_days_from_monday() as usize],
+        date.day(),
+        months[date.month0() as usize],
+        date.year()
+    )
 }

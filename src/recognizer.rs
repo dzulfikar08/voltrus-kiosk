@@ -4,7 +4,7 @@
 
 use crate::face::engine::Engine;
 use crate::face::math::{ANTISPOOF_THRESH, FACE_MODEL, dot};
-use crate::state::{Mode, Seen, Shared};
+use crate::state::{Mode, Seen, Shared, Tone};
 use crate::store::{Event, EventStatus, EventType, Gallery, Payload};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -120,11 +120,11 @@ pub fn spawn(shared: Arc<Shared>, models: PathBuf, now_iso: impl Fn() -> String 
                 match (result, gallery) {
                     (Ok(Some(found)), Some(gallery)) if gallery.settings.face_model == FACE_MODEL => {
                         if found.liveness.is_some_and(|p| p < ANTISPOOF_THRESH) {
-                            shared.set_face_box(Some((found.face.bbox, false)));
+                            shared.set_face_box(Some((found.face.bbox, Tone::Reject)));
                             shared.set_seen(Seen::NotLive);
                             pending = None;
                         } else if let Some(m) = identify(&gallery, &found.embedding) {
-                            shared.set_face_box(Some((found.face.bbox, true)));
+                            shared.set_face_box(Some((found.face.bbox, Tone::Match)));
                             let name = gallery.name_of(&m.employee_id);
                             let confirmed = matches!(&pending, Some((id, at)) if *id == m.employee_id && at.elapsed() < CONFIRM_WITHIN);
                             if recorded.get(&m.employee_id).is_some_and(|at| at.elapsed() < COOLDOWN) {
@@ -153,16 +153,16 @@ pub fn spawn(shared: Arc<Shared>, models: PathBuf, now_iso: impl Fn() -> String 
                                 shared.wake_sync();
                             } else {
                                 pending = Some((m.employee_id, Instant::now()));
-                                shared.set_seen(Seen::Unknown);
+                                shared.set_seen(Seen::Matching);
                             }
                         } else {
-                            shared.set_face_box(Some((found.face.bbox, false)));
+                            shared.set_face_box(Some((found.face.bbox, Tone::Neutral)));
                             shared.set_seen(Seen::Unknown);
                             pending = None;
                         }
                     }
                     (Ok(Some(found)), _) => {
-                        shared.set_face_box(Some((found.face.bbox, false)));
+                        shared.set_face_box(Some((found.face.bbox, Tone::Neutral)));
                         shared.set_seen(Seen::Unknown);
                     }
                     (Ok(None), _) => {

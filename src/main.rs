@@ -19,6 +19,7 @@ mod i18n;
 mod recognizer;
 mod state;
 mod store;
+mod style;
 mod sync;
 mod ui;
 mod update_loop;
@@ -184,10 +185,11 @@ fn main() -> anyhow::Result<()> {
     sync::spawn(shared.clone(), client.clone(), models.clone());
 
     gpui_kit::application()
-        .with_assets(gpui_kit::assets::Assets)
+        .with_assets(style::Assets)
         .run(move |cx| {
             gpui_kit::init(cx);
             Theme::change(ThemeMode::Dark, None, cx);
+            style::apply_theme(cx);
             cx.bind_keys([
                 KeyBinding::new("ctrl-shift-s", ui::OpenSetup, None),
                 KeyBinding::new("f11", ui::ToggleFullscreen, None),

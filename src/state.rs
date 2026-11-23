@@ -20,8 +20,10 @@ pub enum Mode {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Seen {
     Nobody,
-    /// A face, not (yet) a confident match.
+    /// A face that matches nobody in the gallery.
     Unknown,
+    /// A match waiting for its confirming frame.
+    Matching,
     /// MiniFASNet says this is not a live face (a photo or a screen).
     NotLive,
     /// Matched, but already recorded within the cooldown.
@@ -32,6 +34,14 @@ pub enum Seen {
     Recorded {
         event: Box<Event>,
     },
+}
+
+/// How the face outline is drawn on the preview.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Tone {
+    Neutral,
+    Match,
+    Reject,
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -56,7 +66,7 @@ pub struct SyncStatus {
 pub struct Shared {
     frame: Mutex<Option<(u64, Arc<Rgb>)>>,
     preview: Mutex<Option<Arc<RenderImage>>>,
-    face: Mutex<Option<([f32; 4], bool)>>,
+    face: Mutex<Option<([f32; 4], Tone)>>,
     camera_error: Mutex<Option<String>>,
     pub seen: Mutex<(Seen, Instant)>,
     pub mode: Mutex<Mode>,
@@ -111,11 +121,11 @@ impl Shared {
         self.preview.lock().take()
     }
 
-    pub fn face_box(&self) -> Option<([f32; 4], bool)> {
+    pub fn face_box(&self) -> Option<([f32; 4], Tone)> {
         *self.face.lock()
     }
 
-    pub fn set_face_box(&self, face: Option<([f32; 4], bool)>) {
+    pub fn set_face_box(&self, face: Option<([f32; 4], Tone)>) {
         *self.face.lock() = face;
     }
 
