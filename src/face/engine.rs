@@ -27,6 +27,10 @@ fn session(path: &Path) -> Result<Session> {
     Session::builder()?
         .with_optimization_level(GraphOptimizationLevel::Level3)?
         .with_intra_threads(2)?
+        // ONNX Runtime's pool threads busy-wait between runs by default,
+        // which kept a core warm between frames for nothing.
+        .with_intra_op_spinning(false)?
+        .with_inter_op_spinning(false)?
         .commit_from_file(path)
         .with_context(|| format!("loading {}", path.display()))
 }

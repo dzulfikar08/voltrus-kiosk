@@ -2,6 +2,14 @@
 
 All notable changes to Voltrus Kiosk. Versions follow [Semantic Versioning](https://semver.org).
 
+## [0.2.1] - 2026-11-23
+
+Uses much less CPU.
+
+- ONNX Runtime no longer busy-waits between frames.
+- The camera decodes 15 frames a second instead of 30.
+- With nobody in front of the camera, or right after a check-in, the kiosk checks about twice a second instead of seven times.
+
 ## [0.2.0] - 2026-11-23
 
 A redesigned look.

@@ -80,8 +80,23 @@ pub fn spawn(shared: Arc<Shared>, index: u32) {
                         continue;
                     }
                 };
+                let mut n: u64 = 0;
                 loop {
-                    let frame = match camera.frame().and_then(|b| b.decode_image::<RgbFormat>()) {
+                    // Drain every frame (the driver queues them) but decode
+                    // only every other one: 15 fps is plenty for the preview
+                    // and the recognizer, and decoding is the expensive part.
+                    let buffer = match camera.frame() {
+                        Ok(b) => b,
+                        Err(e) => {
+                            shared.set_camera_error(Some(e.to_string()));
+                            break;
+                        }
+                    };
+                    n += 1;
+                    if n.is_multiple_of(2) {
+                        continue;
+                    }
+                    let frame = match buffer.decode_image::<RgbFormat>() {
                         Ok(img) => Rgb {
                             width: img.width(),
                             height: img.height(),

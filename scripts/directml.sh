@@ -11,9 +11,11 @@ if [ -z "$dll" ]; then
   tmp="${RUNNER_TEMP:-/tmp}/ort-win"
   mkdir -p "$tmp"
   curl -fsSL "$url" -o "$tmp/ort.tgz"
-  echo "${sum,,}  $tmp/ort.tgz" | sha256sum -c -
-  tar xzf "$tmp/ort.tgz" -C "$tmp"
-  dll="$tmp/onnxruntime/lib/DirectML.dll"
+  (cd "$tmp" && echo "${sum,,}  ort.tgz" | sha256sum -c -)
+  # Relative paths: GNU tar reads "D:/..." as host "D".
+  (cd "$tmp" && tar xzf ort.tgz)
+  dll="$(find "$tmp" -name DirectML.dll | head -1)"
+  [ -n "$dll" ] || { echo "DirectML.dll not in $url" >&2; exit 1; }
 fi
 mkdir -p "$dest"
 cp "$dll" "$dest/"

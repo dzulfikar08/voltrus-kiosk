@@ -15,6 +15,13 @@ use std::time::{Duration, Instant};
 const COOLDOWN: Duration = Duration::from_secs(60);
 /// A match must repeat on consecutive frames within this window before it counts.
 const CONFIRM_WITHIN: Duration = Duration::from_secs(2);
+/// Frame interval while a face is being identified (~7 per second).
+const ACTIVE_PERIOD: Duration = Duration::from_millis(150);
+/// Frame interval with nobody in front of the camera, or someone already
+/// recorded: enough to notice the next person within half a second.
+const IDLE_PERIOD: Duration = Duration::from_millis(450);
+/// How long the camera must be empty before slowing down.
+const IDLE_AFTER: Duration = Duration::from_secs(3);
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Match {
@@ -174,10 +181,20 @@ pub fn spawn(shared: Arc<Shared>, models: PathBuf, now_iso: impl Fn() -> String 
                         *shared.engine_error.lock() = Some(format!("{e:#}"));
                     }
                 }
-                // Leave the CPU some room on small kiosk boxes.
+                // Leave the CPU some room: full speed only while someone is
+                // being identified, slower when the camera is empty or the
+                // person was just recorded.
+                let period = {
+                    let (seen, since) = &*shared.seen.lock();
+                    match seen {
+                        Seen::Nobody if since.elapsed() > IDLE_AFTER => IDLE_PERIOD,
+                        Seen::Again { .. } => IDLE_PERIOD,
+                        _ => ACTIVE_PERIOD,
+                    }
+                };
                 let spent = started.elapsed();
-                if spent < Duration::from_millis(150) {
-                    std::thread::sleep(Duration::from_millis(150) - spent);
+                if spent < period {
+                    std::thread::sleep(period - spent);
                 }
             }
         })
