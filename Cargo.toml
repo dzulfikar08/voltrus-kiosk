@@ -14,7 +14,9 @@ publish = false
 # UI: gpui-kit pins the matching GPUI release and gpui-component widgets.
 gpui-kit = "0.9"
 # Face models (YuNet, SFace int8, MiniFASNet-V2) on ONNX Runtime.
-ort = { version = "=2.0.0-rc.10" }
+# No copy-dylibs: its build script breaks on Cargo's new build-dir layout. The
+# only dylib (Windows DirectML.dll) is copied by the release workflow.
+ort = { version = "=2.0.0-rc.10", default-features = false, features = ["std", "download-binaries"] }
 # Webcam: V4L2 on Linux, Media Foundation on Windows, AVFoundation on macOS.
 nokhwa = { version = "0.10", features = ["input-native"] }
 # Signed device requests (Ed25519, the scheme Voltrus ERP's kiosk API checks).

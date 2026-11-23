@@ -103,9 +103,9 @@ jobs:
         with:
           key: release
           cache-on-failure: true
-      # ort-sys copies DirectML.dll into target/release/{.,examples,deps} and fails if they are missing.
-      - run: mkdir -p target/release/examples target/release/deps
       - run: cargo build --release --locked
+      # ONNX Runtime is static but loads DirectML.dll from beside the exe.
+      - run: ./scripts/directml.sh target/release
       - run: target/release/voltrus-kiosk.exe --version | grep -F "voltrus-kiosk ${VERSION} "
       # ONNX Runtime is linked statically, but it loads DirectML.dll from beside the exe.
       # First installs take the zip (exe + DLL); updates replace only the exe.

@@ -40,8 +40,9 @@ jobs:
         run: |
           cargo fmt --check
           cargo clippy --all-targets --locked -- -D warnings
-      # ort-sys copies DirectML.dll into target/<profile>/{.,examples,deps} and fails if they are missing.
+      - run: cargo test --locked --no-run
+      # ONNX Runtime (static) loads DirectML.dll at start on Windows; put it beside the test binaries.
       - if: runner.os == 'Windows'
         shell: bash
-        run: mkdir -p target/debug/examples target/debug/deps
+        run: ./scripts/directml.sh target/debug/deps
       - run: cargo test --locked
